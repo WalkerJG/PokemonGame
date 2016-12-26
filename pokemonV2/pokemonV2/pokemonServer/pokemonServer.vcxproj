@@ -160,9 +160,6 @@
     <ClInclude Include="nocopyable.h" />
     <ClInclude Include="ThreadPool.h" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="..\pokemonClient\pokemonClient\doc3.md" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

@@ -1,7 +1,7 @@
 #include "ThreadPool.h"
 #include <cassert>
 
-using namespace fivestar;
+using namespace myThreadPool;
 using namespace std;
 ThreadPool::ThreadPool(const string &name) :
     _name(name),

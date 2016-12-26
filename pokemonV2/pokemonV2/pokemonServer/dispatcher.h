@@ -38,12 +38,28 @@ private:
     //Construct a piece of json representing pokemon
     json pokemonInfoToJson(const pokemonInfo& info);
 
+
+    //Convert from json to pokemonInfo
+    pokemonInfo pokemonJsonToInfo(const json& pokemonJson);
+
+    //Construct a piece of json representing client
     json clientInfoToJson(const clientInfo & info);
-    pokemonInfo pokemonJsonToInfo(const json& json);
+
+    clientInfo clientJsonToInfo(const json & client);
+
+    json getOneMoreHandler(const json & request);
+    
     //Generate a random number between 0 and 1
     double randomNum();
 
+    //Set the name of a specified pokemon
+    json setPetNameHandler(const json& request);
    
+    //Update the specified pokemon
+    json updatePetHandler(const json& request);
+
+    //Update the specified pokemon
+    json updateClientHandler(const json& request);
     //Handle the request of getting the pets of one specified client
     json getPetHandler(const json & request);
     bool logInClient(std::string);

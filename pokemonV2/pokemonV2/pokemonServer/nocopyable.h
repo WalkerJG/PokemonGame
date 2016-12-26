@@ -1,7 +1,7 @@
 #ifndef NOCOPYABLE_H
 #define NOCOPYABLE_H
 
-namespace fivestar
+namespace myThreadPool
 {
     class nocopyable
     {

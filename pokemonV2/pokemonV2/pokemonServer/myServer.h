@@ -35,9 +35,11 @@ namespace MyServer {
         std::unordered_map<std::string,SOCKET>& getOnlineClient() {
             return _onlineClient;
         }
+        
+        std::string getSockClient(SOCKET clientSock);
     private:
         SOCKET serverSock;
-        fivestar::ThreadPool threadPool;//Using thread pool to provide better response
+        myThreadPool::ThreadPool threadPool;//Using thread pool to provide better response
         int _onlineNum;
         std::unordered_map<std::string,SOCKET> _onlineClient;
 

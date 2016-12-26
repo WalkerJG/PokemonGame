@@ -30,13 +30,18 @@ std::string dispatcher::dispatch(const json & request)
     case GET_CLIENT_PET:
         response = getPetHandler(request);
         break;
-
-        //case MOVE:
-        //    response = movHandler(request);
-        //    break;
-        //case Bubble:
-        //    response = bubbleHandler(request);
-        //    break;
+    case SET_PET_NAME:
+        response = setPetNameHandler(request);
+        break;
+    case UPDATE_PET:
+        response = updatePetHandler(request);
+        break;
+    case UPDATE_CLIENT:
+        response = updateClientHandler(request);
+        break;
+    case GET_ONE_MORE_POKEMON:
+        response = getOneMoreHandler(request);
+        break;
     default:
         response["type"] = SERVER_ERROR;
         std::cout << "[ERROR] Bad request" << std::endl;
@@ -64,7 +69,7 @@ json dispatcher::signInHandler(const json &requestInfo)
             json tmpInfo;
             tmpInfo = clientInfoToJson(result.front());
             resultInfo["clientInfo"] = tmpInfo;
-            auto pet = mapper.Query(pokemonInfo{}).Where(field(pokemonHelper.client) == requestInfo["account"].get<std::string>()).ToList();
+            auto pet = mapper.Query(pokemonHelper).Where(field(pokemonHelper.client) == requestInfo["account"].get<std::string>()).ToList();
             for (auto &i : pet) {//return all the pokemon belonging to the client
                 resultInfo["petList"].push_back(pokemonInfoToJson(i));
             }
@@ -107,13 +112,14 @@ json dispatcher::signUpHandler(const json & requestInfo)
             mapper.Insert(clientHelper);
             resultInfo["clientInfo"] = clientInfoToJson(clientHelper);
             resultInfo["type"] = SIGN_UP_SUCCESS;
-            int index = mapper.Query(pokemonHelper).Where(field(pokemonHelper.client) != std::string()).ToList().size();
+            int index = mapper.Query(pokemonHelper).Where(field(pokemonHelper.pokemonId) != -1).ToList().size();
             for (int i = 0;i <= 2;++i) {//Randomly generating three pokemon
                 auto pokemon = randomGeneratePokemon();
-                pokemon["client"] = requestInfo["account"].get<std::string>();
+                pokemon["client"] = clientHelper.account;
                 pokemon["pokemonId"] = index++;
                 resultInfo["pokemon"].push_back(pokemon);
                 pokemonHelper = pokemonJsonToInfo(pokemon);
+                pokemonHelper.client = clientHelper.account;
                 mapper.Insert(pokemonHelper);
             }
             resultInfo["pokemonNum"] = 3;
@@ -169,6 +175,10 @@ json dispatcher::getClientHandler(const json & requestInfo)
             //Serialize the client information
             json tmp;
             tmp = clientInfoToJson(i);
+            if (isOnline(i.account))
+                tmp["state"] = 1;
+            else
+                tmp["state"] = 0;
             resultInfo["client"].push_back(tmp);
         }
         return std::move(resultInfo);
@@ -207,14 +217,14 @@ json dispatcher::randomGeneratePokemon()
     randomAttr.level = 1;
     randomAttr.client = std::string();
     randomAttr.exp = 0;
-    randomAttr.healthMax = static_cast<int>(500 * (0.8 + randomNum()));
+    randomAttr.healthMax = static_cast<int>(400 * (0.8 + randomNum()));
     randomAttr.expMax = 100;
     randomAttr.health = randomAttr.healthMax;
-    randomAttr.physicalAtk = static_cast<int>(30 * (0.5 + randomNum()));
-    randomAttr.magicAtk = static_cast<int>(30 * (0.5 + randomNum()));
+    randomAttr.physicalAtk = static_cast<int>(60 * (0.5 + randomNum()));
+    randomAttr.magicAtk = static_cast<int>(60 * (0.5 + randomNum()));
     randomAttr.physicalDef = static_cast<int>(60 * (0.5 + randomNum()));
     randomAttr.magicDef = static_cast<int>(60 * (0.5 + randomNum()));
-    randomAttr.atkSpeed = randomNum();
+    randomAttr.atkSpeed = randomNum() * 2 + 4;
     randomAttr.critRate = randomNum();
     randomAttr.speed = randomNum();
     return std::move(pokemonInfoToJson(randomAttr));
@@ -246,7 +256,6 @@ pokemonInfo dispatcher::pokemonJsonToInfo(const json & pokemonJson)
 {
     pokemonInfo result;
     result.pokemonId = pokemonJson["pokemonId"].get<int>();
-    result.client = pokemonJson["client"].get<std::string>();
     result._name = pokemonJson["_name"].get<std::string>();
     result.type = pokemonJson["type"].get<std::string>();
     result.level = pokemonJson["level"].get<int>();
@@ -261,6 +270,8 @@ pokemonInfo dispatcher::pokemonJsonToInfo(const json & pokemonJson)
     result.atkSpeed = pokemonJson["atkSpeed"].get<double>();
     result.critRate = pokemonJson["critRate"].get<double>();
     result.speed = pokemonJson["speed"].get<double>();
+    result.client = pokemonJson["client"].get<std::string>();
+    //result.client = pokemonJson["account"].get<std::string>();
     return std::move(result);
 }
 
@@ -272,15 +283,135 @@ json dispatcher::clientInfoToJson(const clientInfo & info) {
     tmp["loseNum"] = info.loseNum;
     tmp["numMedal"] = info.numMedal;
     tmp["levelMedal"] = info.levelMedal;
+    tmp["password"] = info.password;
     //std::cout <<"Debug"<< tmp.dump() << std::endl;
     return std::move(tmp);
 }
 
+clientInfo dispatcher::clientJsonToInfo(const json& client) {
+    clientInfo info;
+    info.account = client["account"].get<std::string>();
+    info.password = client["password"].get<std::string>();
+    info.levelMedal = client["levelMedal"].get<int>();
+    info.numMedal = client["numMedal"].get<int>();
+    info.winNum = client["winNum"].get<int>();
+    info.loseNum = client["loseNum"].get<int>();
+    info.winRate = info.winNum*1.0 / (info.winNum + info.loseNum);
+    return std::move(info);
+}
+json dispatcher::getOneMoreHandler(const json & request)
+{
+    json resultInfo;
+    if (request["type"].get<int>() == GET_ONE_MORE_POKEMON) {
+        pokemonInfo pokemonHelper;
+        FieldExtractor field{ pokemonHelper };
+        ORMapper mapper("data.db");
+        auto pokemon = randomGeneratePokemon();
+        int index = mapper.Query(pokemonHelper).Where(field(pokemonHelper.pokemonId) != -1).ToList().size();
+        pokemon["client"] = request["client"].get<std::string>();
+        pokemon["pokemonId"] = index++;
+        resultInfo["pokemon"].push_back(pokemon);
+        pokemonHelper = pokemonJsonToInfo(pokemon);
+        pokemonHelper.client = request["client"].get<std::string>();
+        mapper.Insert(pokemonHelper);
+        resultInfo["type"] = GET_ONE_MORE_POKEMON_SUCCESS;
+    }
+    else {
+        resultInfo["type"] = SERVER_ERROR;
+    }
+    return std::move(resultInfo);
+}
 double dispatcher::randomNum()
 {
     std::random_device rd;
     std::mt19937 gen(rd());
     return std::generate_canonical<double, 10>(gen);
+}
+
+json dispatcher::setPetNameHandler(const json & request)
+{
+    json resultInfo;
+    if (request["type"].get<int>() == SET_PET_NAME) {
+        pokemonInfo helper;
+        FieldExtractor field{ helper };
+        ORMapper mapper("data.db");
+
+        auto result = mapper.Query(helper).Where(field(helper.pokemonId) == request["pokemonId"].get<int>()).ToList();
+        if (result.size() == 1) {
+            result.front()._name = request["name"].get<std::string>();
+            mapper.Update(result.front());
+            resultInfo["type"] = SET_PET_NAME_SUCCESS;
+        }
+        else {
+            resultInfo["type"] = SET_PET_NAME_FAIL;
+        }
+    }
+    else {
+        resultInfo["type"] = SERVER_ERROR;
+    }
+    return std::move(resultInfo);
+}
+
+json dispatcher::updatePetHandler(const json & request)
+{
+    json resultInfo;
+    if (request["type"].get<int>() == UPDATE_PET) {
+        pokemonInfo helper;
+        FieldExtractor field{ helper };
+        ORMapper mapper("data.db");
+
+        auto result = mapper.Query(helper).Where(field(helper.pokemonId) == request["pokemon"]["pokemonId"].get<int>()).ToList();
+        if (result.size() == 1) {
+            auto &pet = result.front();
+            std::string client = pet.client;
+            pet = pokemonJsonToInfo(request["pokemon"]);
+            if (pet.client != "Server")
+                pet.client = client;
+            mapper.Update(pet);
+            resultInfo["type"] = UPDATE_PET_SUCCESS;
+            resultInfo["pokemonId"] = pet.pokemonId;
+        }
+        else {
+            resultInfo["type"] = UPDATE_PET_FAIL;
+            resultInfo["reason"] = "Error in data base!";
+        }
+    }
+    else {
+        resultInfo["type"] = SERVER_ERROR;
+        resultInfo["reason"] = "Error in server!";
+    }
+    return std::move(resultInfo);
+}
+
+json dispatcher::updateClientHandler(const json & request)
+{
+    json resultInfo;
+    if (request["type"].get<int>() == UPDATE_CLIENT) {
+        clientInfo helper;
+        FieldExtractor field{ helper };
+        ORMapper mapper("data.db");
+
+        auto result = mapper.Query(helper).Where(field(helper.account) == request["client"]["account"].get<std::string>()).ToList();
+        if (result.size() == 1) {
+            auto &client = result.front();
+            std::string tmpPwd = client.password;
+            client = clientJsonToInfo(request["client"]);
+            if (request["client"]["password"] == std::string())
+                client.password = tmpPwd;
+            mapper.Update(client);
+            resultInfo["type"] = UPDATE_CLIENT_SUCCESS;
+            resultInfo["account"] = helper.account;
+        }
+        else {
+            resultInfo["type"] = UPDATE_CLIENT_FAIL;
+            resultInfo["reason"] = "Error in data base!";
+        }
+    }
+    else {
+        resultInfo["type"] = SERVER_ERROR;
+        resultInfo["reason"] = "Error in server!";
+    }
+    return std::move(resultInfo);
 }
 
 json dispatcher::getPetHandler(const json & request)

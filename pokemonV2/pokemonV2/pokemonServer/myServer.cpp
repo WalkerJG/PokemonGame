@@ -90,6 +90,15 @@ Server::~Server()
     closesocket(serverSock);
 }
 
+std::string MyServer::Server::getSockClient(SOCKET clientSock)
+{
+    for (auto i : _onlineClient) {
+        if (i.second == clientSock)
+            return i.first;
+    }
+    return std::string();
+}
+
 
 void MyServer::connectHandler(SOCKET  connection, Server * server, std::mutex & mtx)
 {
@@ -103,7 +112,7 @@ void MyServer::connectHandler(SOCKET  connection, Server * server, std::mutex & 
         char recvBuf[BUF_LEN];
         int recvBufLen = BUF_LEN;
         dispatcher _dispatcher(server, connection);
-        std::cout << "[INFO] New come, now " << server->incClientNum() << " connections in total" << std::endl;
+        std::cout << "[Info] New come, now " << server->incClientNum() << " connections in total" << std::endl;
 
         while (true)
         {
@@ -112,18 +121,22 @@ void MyServer::connectHandler(SOCKET  connection, Server * server, std::mutex & 
             {
                 //lock for mutual exclusion
                 (mtx).lock();
-                std::cout << "[INFO] Someone offline, now " << server->decClientNum() << " connections in total" << std::endl;
-                /*json request;
-                request["type"] = LOG_OUT;
-                request["connection"] = connection;
-                _dispatcher.dispatch(request);*/
+                std::cout << "[Info] Someone offline, now " << server->decClientNum() << " connections in total" << std::endl;
+                std::string name  = server->getSockClient(connection);
+                if (name != std::string()) {
+                    json request;
+                    request["type"] = LOG_OUT;
+                    request["connection"] = connection;
+                    request["account"] = name;
+                    _dispatcher.dispatch(request);
+                }
                 (mtx).unlock();
                 shutdown(connection, SD_BOTH);
                 closesocket(connection);
                 break;
             }
             recvBuf[recvLength] = 0;
-            std::cout << "[INFO] message: " << recvBuf << std::endl;
+            std::cout << "[Info] message: " << recvBuf << std::endl;
 
             std::string responseStr;
             try

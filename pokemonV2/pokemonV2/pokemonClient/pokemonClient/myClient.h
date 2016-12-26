@@ -22,7 +22,6 @@ namespace MyClient {
         bool getAllClient();
         std::vector<pokemonInfo> getClientPet(const std::string & client);
         json  constructJsonClient();
-        json  constructjson_GUI();
 		json communicateWithServerTCP(const json & message);
         pokemonInfo constructPokemon(const json & pokemon);
         clientInfo clientJsonToInfo(const json & client);

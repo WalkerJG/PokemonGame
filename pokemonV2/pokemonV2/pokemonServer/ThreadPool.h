@@ -11,7 +11,7 @@
 #include <memory>
 
 #include "nocopyable.h"
-namespace fivestar
+namespace myThreadPool
 {
     class ThreadPool :public nocopyable
     {
